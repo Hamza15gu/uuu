@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>التحكم بالحركات عبر الويب</title>
+    <style>
+        body { font-family: Tahoma, sans-serif; background: #121212; color: #fff; text-align: center; margin: 0; padding: 20px; }
+        video { display: none; }
+        canvas { border: 3px solid #00ffcc; border-radius: 10px; margin-top: 20px; max-width: 100%; }
+        .status { font-size: 24px; margin-top: 15px; color: #00ffcc; }
+    </style>
+</head>
+<body>
+
+    <h1>التحكم بالحاسوب عبر إشارات اليد (نسخة الويب)</h1>
+    <div class="status" id="status">جاري تحضير الكاميرا...</div>
+    
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
+
+    <!-- استدعاء مكتبات MediaPipe جاهزة من العواصم الرقمية (CDN) بدون تحميل -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <script>
+        const videoElement = document.getElementById('video');
+        const canvasElement = document.getElementById('canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const statusElement = document.getElementById('status');
+
+        function onResults(results) {
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                // تحليل بسيط للإصبع والإبهام
+                const thumbTip = landmarks[4];
+                const thumbIp = landmarks[3];
+                
+                if (thumbTip.y < thumbIp.y) {
+                    statusElement.innerText = "الحركة: 👍 (رفع الصوت)";
+                } else {
+                    statusElement.innerText = "الحركة: 👎 (خفض الصوت)";
+                }
+            } else {
+                statusElement.innerText = "أظهر يدك أمام الكاميرا...";
+            }
+            canvasCtx.restore();
+        }
+
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7
+        });
+
+        hands.onResults(onResults);
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: 640,
+            height: 480
+        });
+
+        camera.start().then(() => {
+            statusElement.innerText = "الكاميرا تعمل، أظهر يدك!";
+        });
+    </script>
+</body>
+</html>
